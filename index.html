@@ -533,10 +533,20 @@
     show("s-wait");
   }
 
-  function renderResult(data, canControl) {
+  function renderResult(data, canControl, me) {
     var v = $("verdict"); v.textContent = "";
     v.className = "verdict " + (data.win ? "win" : "lose");
     function vel(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; e.textContent = txt; v.appendChild(e); }
+    if (data.two && typeof me === "number" && data.personal && data.personal[me]) {
+      var pr = data.personal[me];
+      v.className = "verdict " + (pr.win ? "win" : "lose");
+      vel("div", "mark", pr.win ? "✓" : "✕");
+      vel("h2", "", pr.win ? "¡Ganaste!" : "¡Perdiste!");
+      vel("p", "dim", pr.text);
+    } else if (data.two) {
+      vel("div", "mark", "✓");
+      vel("h2", "", "Resultado");
+    } else {
     vel("div", "mark", data.win ? "✓" : "✕");
     if (data.win && data.none) {
       vel("h2", "", "¡Tenían razón!");
@@ -554,6 +564,7 @@
                                        : data.choiceName + " no era el impostor."));
       vel("p", "eyebrow", (data.impList.length > 1 ? "Los ganadores son" : "El ganador es"));
       vel("div", "winner", data.impNames);
+    }
     }
     if (data.tally) vel("p", "dim", "Votos: " + data.tally);
     $("res-label").textContent = data.none ? "Esta ronda" : (data.impList.length > 1 ? "Los impostores eran" : "El impostor era");
@@ -821,7 +832,7 @@
       buildVote(d.names, d.none);
       show("s-vote");
     } else if (d.t === "result") {
-      renderResult(d.data, false);
+      renderResult(d.data, false, d.me);
     }
   }
 
@@ -912,12 +923,30 @@
     tally.forEach(function (v, i) { if (v === max && max > 0) tops.push(i); });
     var choice = tops.length === 1 ? tops[0] : (n === 2 ? n : -1);
     var data = evaluate(r, choice);
+    if (n === 2) {
+      var kk = r.impostors.length ? r.impostors[0] : -1;
+      var pv = [net.votes[0], net.votes[1]];
+      data.two = true;
+      data.personal = [0, 1].map(function (i) {
+        var o = 1 - i, oName = r.names[o], kName = kk >= 0 ? r.names[kk] : "";
+        if (kk < 0) {
+          return pv[i] === 2 ? { win: true, text: "Acertaste: en esta ronda no había impostor." }
+                             : { win: false, text: "Fallaste: en esta ronda no había impostor." };
+        }
+        if (i === kk) {
+          return pv[o] === kk ? { win: false, text: oName + " te descubrió. Tú eras el impostor." }
+                              : { win: true, text: "Engañaste a " + oName + ". Tú eras el impostor y no te descubrió." };
+        }
+        return pv[i] === kk ? { win: true, text: "¡Lo encontraste! " + kName + " era el impostor." }
+                            : { win: false, text: "Fallaste. El impostor era " + kName + "." };
+      });
+    }
     var parts = r.names.map(function (nm, i) { return nm + ": " + tally[i]; });
     if (n === 2) parts.push("Nadie: " + tally[n]);
     data.tally = parts.join(" · ");
     net.phase = "result";
-    sendAll({ t: "result", data: data });
-    renderResult(data, true);
+    net.players.forEach(function (p, i) { if (i > 0 && p.conn && p.conn.open) p.conn.send({ t: "result", data: data, me: i }); });
+    renderResult(data, true, 0);
   }
 
   function hostForceVote() { if (net.isHost && net.phase === "vote") finishVote(); }
