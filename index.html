@@ -121,6 +121,11 @@
   .names span { background: var(--lapis-hi); padding: 6px 12px; border-radius: 999px; font-weight: 700; }
   .ref { background: var(--ink); border-radius: 12px; padding: 14px; text-align: center; }
   .ref strong { color: var(--gold); }
+  .room-code { font-family: var(--font-display); font-size: 3.6rem; letter-spacing: .18em; color: var(--gold); text-align: center; line-height: 1.1; padding-left: .18em; }
+  .wait-text { font-size: 1.25rem; font-weight: 700; }
+  .join-row { display: flex; gap: 8px; }
+  .join-row input { flex: 1; min-width: 0; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 2px solid transparent; background: var(--lapis-hi); color: var(--sand); text-transform: uppercase; letter-spacing: .2em; font-weight: 800; text-align: center; }
+  .field { width: 100%; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 2px solid transparent; background: var(--lapis-hi); color: var(--sand); }
   .tag { align-self: flex-start; background: var(--gold); color: var(--ink); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; }
 </style>
 </head>
@@ -134,21 +139,48 @@
 
   <!-- 1. AJUSTES -->
   <section id="s-setup">
-    <p class="dim">Un solo teléfono para todos. Cada quien ve en secreto la palabra de la Biblia. El impostor no la sabe y tiene que disimular.</p>
+    <p class="dim">Cada quien ve en secreto la palabra de la Biblia. El impostor no la sabe y tiene que disimular.</p>
 
-    <div class="panel">
+    <div class="chips" id="modes" role="group" aria-label="Modo de juego">
+      <button class="chip" type="button" id="m-local" aria-pressed="true">En un teléfono</button>
+      <button class="chip" type="button" id="m-online" aria-pressed="false">Cada quien en su teléfono</button>
+    </div>
+
+    <div class="panel" id="panel-online" hidden>
+      <h3>Sala en línea</h3>
+      <div id="on-choose" style="display:flex;flex-direction:column;gap:12px">
+        <input class="field" type="text" id="on-name" maxlength="18" placeholder="Tu nombre" autocomplete="off">
+        <button class="btn small" id="on-create" type="button">Crear una sala nueva</button>
+        <p class="dim" style="text-align:center">o entra a la sala de un amigo</p>
+        <div class="join-row">
+          <input type="text" id="on-code" maxlength="4" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters">
+          <button class="btn ghost small" id="on-join" type="button">Unirme</button>
+        </div>
+      </div>
+      <div id="on-room" hidden style="display:flex;flex-direction:column;gap:12px">
+        <p class="eyebrow" style="text-align:center">Código de la sala</p>
+        <div class="room-code" id="room-code"></div>
+        <p class="dim" style="text-align:center">Pásale este código a tus amigos para que entren.</p>
+        <ul class="order" id="room-list"></ul>
+        <p class="dim" id="room-note" style="text-align:center"></p>
+        <button class="btn ghost small" id="leave-room" type="button">Salir de la sala</button>
+      </div>
+      <p class="error" id="on-err" role="alert"></p>
+    </div>
+
+    <div class="panel" id="panel-local">
       <h3>Jugadores <span class="tag" style="margin-left:6px">Nombres de ejemplo</span></h3>
       <div id="players" style="display:flex;flex-direction:column;gap:8px"></div>
       <p class="dim" id="two-note" hidden>Con 2 jugadores, cada ronda puede tener un impostor o ninguno.</p>
       <button class="btn ghost small" id="add-player" type="button">+ Agregar jugador</button>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="panel-cats">
       <h3>Categorías</h3>
       <div class="chips" id="cats"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="panel-opts">
       <h3>Opciones</h3>
       <label class="opt" for="o-imp"><span>Impostores</span>
         <select id="o-imp"></select>
@@ -204,16 +236,27 @@
       <p>Una pista corta por turno, sin decir la palabra. Si eres el impostor, escucha y da una pista creíble. Al terminar el tiempo, todos señalan a quién creen que es.</p>
     </div>
     <button class="btn" id="reveal" type="button">Votar: ¿quién es el impostor?</button>
+    <p class="dim" id="guest-play-note" hidden style="text-align:center">El anfitrión abre la votación cuando termine la ronda.</p>
   </section>
 
   <!-- 4. VOTACIÓN -->
   <section id="s-vote" hidden>
     <p class="eyebrow" style="text-align:center">Votación</p>
     <h2 style="text-align:center">¿Quién es el impostor?</h2>
-    <p class="dim" style="text-align:center">Pónganse de acuerdo y toquen un nombre.</p>
+    <p class="dim" style="text-align:center">Toca el nombre de quien crees que es el impostor.</p>
     <div class="vote-list" id="vote-list"></div>
     <p class="error" id="vote-err" role="alert" style="text-align:center"></p>
     <button class="btn" id="confirm-vote" type="button">Confirmar voto</button>
+  </section>
+
+  <!-- ESPERA (en línea) -->
+  <section id="s-wait" hidden>
+    <div class="stage">
+      <div class="seal-mark" aria-hidden="true">…</div>
+      <p class="eyebrow">Un momento</p>
+      <p class="wait-text" id="wait-text"></p>
+      <button class="btn ghost small" id="force-vote" type="button" hidden>Cerrar la votación ahora</button>
+    </div>
   </section>
 
   <!-- 5. RESULTADO -->
@@ -225,9 +268,11 @@
     <div class="ref" id="res-ref"></div>
     <button class="btn" id="again" type="button">Otra ronda con las mismas personas</button>
     <button class="btn ghost" id="to-setup" type="button">Cambiar ajustes</button>
+    <p class="dim" id="guest-result-note" hidden style="text-align:center">El anfitrión puede empezar otra ronda.</p>
   </section>
 </main>
 
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 (function () {
   var DATA = {
@@ -252,19 +297,26 @@
   };
 
   var state = {
+    mode: "local",
     players: ["Ana", "Luis", "Sara", "David"],
     cats: { personajes: true, lugares: true, libros: true },
     impostors: 1, minutes: 3, hint: true,
-    round: null, idx: 0, timerId: null
+    round: null, idx: 0, timerId: null, choice: -1
+  };
+
+  var net = {
+    peer: null, conn: null, isHost: false, inRoom: false, code: "",
+    players: [], phase: "lobby", round: null, ready: {}, votes: {}
   };
 
   function $(id) { return document.getElementById(id); }
-  var screens = ["s-setup", "s-pass", "s-card", "s-play", "s-vote", "s-result"];
+  var screens = ["s-setup", "s-pass", "s-card", "s-play", "s-vote", "s-wait", "s-result"];
   function show(id) {
     screens.forEach(function (s) { $(s).hidden = (s !== id); });
     $("top").hidden = (id !== "s-setup");
     window.scrollTo(0, 0);
   }
+  function isOnline() { return state.mode === "online" && net.inRoom; }
 
   /* ---------- Ajustes ---------- */
   function renderPlayers() {
@@ -305,8 +357,10 @@
     });
   }
 
+  function playerCount() { return isOnline() ? net.players.length : state.players.length; }
+
   function renderImpostorOptions() {
-    var max = Math.max(1, Math.floor((state.players.length - 1) / 2));
+    var max = Math.max(1, Math.floor((playerCount() - 1) / 2));
     var sel = $("o-imp");
     sel.textContent = "";
     for (var n = 1; n <= max; n++) {
@@ -318,6 +372,29 @@
     sel.value = String(state.impostors);
   }
 
+  function renderSetup() {
+    var online = state.mode === "online", inRoom = net.inRoom, host = net.isHost;
+    $("m-local").setAttribute("aria-pressed", online ? "false" : "true");
+    $("m-online").setAttribute("aria-pressed", online ? "true" : "false");
+    $("modes").hidden = inRoom;
+    $("panel-local").hidden = online;
+    $("panel-online").hidden = !online;
+    $("on-choose").hidden = inRoom;
+    $("on-room").hidden = !inRoom;
+    var showOpts = !online || (inRoom && host);
+    $("panel-cats").hidden = !showOpts;
+    $("panel-opts").hidden = !showOpts;
+    $("start").hidden = !showOpts;
+    $("err").hidden = !showOpts;
+    $("room-note").textContent = host
+      ? "Cuando estén todos, toca Empezar partida."
+      : "Esperando a que el anfitrión empiece la partida…";
+    renderImpostorOptions();
+  }
+
+  $("m-local").addEventListener("click", function () { state.mode = "local"; renderSetup(); });
+  $("m-online").addEventListener("click", function () { state.mode = "online"; renderSetup(); });
+
   $("add-player").addEventListener("click", function () {
     state.players.push(""); renderPlayers(); renderImpostorOptions();
     var last = $("p-" + (state.players.length - 1)); if (last) last.focus();
@@ -326,7 +403,7 @@
   $("o-min").addEventListener("change", function (e) { state.minutes = parseInt(e.target.value, 10); });
   $("o-hint").addEventListener("change", function (e) { state.hint = e.target.checked; });
 
-  /* ---------- Partida ---------- */
+  /* ---------- Reglas del juego (comunes) ---------- */
   function shuffle(arr) {
     var a = arr.slice();
     for (var i = a.length - 1; i > 0; i--) {
@@ -335,19 +412,177 @@
     return a;
   }
 
-  function newRound() {
-    var names = state.players.map(function (n, i) { return (n || "").trim() || ("Jugador " + (i + 1)); });
+  function buildPool() {
     var pool = [];
     Object.keys(DATA).forEach(function (k) {
       if (state.cats[k]) DATA[k].words.forEach(function (w) { pool.push({ word: w[0], ref: w[1], cat: DATA[k].label }); });
     });
-    if (!pool.length) { $("err").textContent = "Elige al menos una categoría."; show("s-setup"); return false; }
-    $("err").textContent = "";
+    return pool;
+  }
+
+  function pickImpostors(n) {
+    if (n === 2) { var x = Math.floor(Math.random() * 3); return x < 2 ? [x] : []; }
+    var idxs = shuffle(Array.apply(null, { length: n }).map(function (_, i) { return i; }));
+    var max = Math.max(1, Math.floor((n - 1) / 2));
+    return idxs.slice(0, Math.min(state.impostors, max));
+  }
+
+  function makeRound(names) {
+    var pool = buildPool();
+    if (!pool.length) return null;
     var pick = pool[Math.floor(Math.random() * pool.length)];
-    var order = shuffle(names.map(function (_, i) { return i; }));
-    var imp = names.length === 2 ? (function () { var x = Math.floor(Math.random() * 3); return x < 2 ? [x] : []; })() : order.slice(0, state.impostors);
-    state.round = { names: names, word: pick.word, ref: pick.ref, cat: pick.cat, impostors: imp,
-                    starter: names[Math.floor(Math.random() * names.length)] };
+    return { names: names, word: pick.word, ref: pick.ref, cat: pick.cat,
+             impostors: pickImpostors(names.length),
+             starter: names[Math.floor(Math.random() * names.length)] };
+  }
+
+  function playInfo(n, k, cat) {
+    var base = n === 2 ? "2 jugadores · puede haber un impostor, o ninguno"
+                       : n + " jugadores · " + k + (k === 1 ? " impostor" : " impostores");
+    return base + (state.hint ? " · " + cat : "");
+  }
+
+  function playOrder(r) {
+    var n = r.names.length, start = r.names.indexOf(r.starter), out = [];
+    for (var j = 0; j < n; j++) out.push(r.names[(start + j) % n]);
+    return out;
+  }
+
+  function evaluate(r, choice) {
+    var n = r.names.length, none = r.impostors.length === 0, saidNobody = choice === n;
+    var win = choice < 0 ? false : (saidNobody ? none : r.impostors.indexOf(choice) !== -1);
+    return {
+      win: win, none: none, saidNobody: saidNobody, noChoice: choice < 0,
+      choiceName: (choice >= 0 && choice < n) ? r.names[choice] : "",
+      impNames: r.impostors.map(function (i) { return r.names[i]; }).join(" y "),
+      impList: r.impostors.map(function (i) { return r.names[i]; }),
+      word: r.word, ref: r.ref, cat: r.cat, tally: ""
+    };
+  }
+
+  /* ---------- Pantallas compartidas ---------- */
+  function drawCard(isImp, word, cat, hint, who) {
+    var card = $("card");
+    card.textContent = "";
+    card.className = "card flip" + (isImp ? " impostor" : "");
+    function line(cls, txt) { var d = document.createElement("div"); d.className = cls; d.textContent = txt; card.appendChild(d); }
+    if (isImp) {
+      line("small-label", "Tu papel");
+      line("big", "IMPOSTOR");
+      if (hint) line("small-label", "Categoría: " + cat);
+      else line("small-label", "No sabes la palabra");
+    } else {
+      line("small-label", "La palabra secreta es");
+      line("big", word);
+      line("small-label", cat);
+    }
+    $("card-who").textContent = who;
+  }
+
+  function fmt(sec) {
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function startPlayView(secs, order, info, canVote) {
+    var end = Date.now() + secs * 1000;
+    var t = $("timer");
+    t.className = "timer";
+    t.textContent = fmt(secs);
+    $("play-info").textContent = info;
+    var ord = $("order"); ord.textContent = "";
+    order.forEach(function (name, j) {
+      var li = document.createElement("li");
+      li.textContent = name;
+      if (j === 0) li.className = "first";
+      ord.appendChild(li);
+    });
+    $("reveal").hidden = !canVote;
+    $("guest-play-note").hidden = canVote;
+    clearInterval(state.timerId);
+    state.timerId = setInterval(function () {
+      var left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      t.textContent = left > 0 ? fmt(left) : "¡Tiempo!";
+      if (left === 0) { t.className = "timer done"; clearInterval(state.timerId); }
+    }, 250);
+    show("s-play");
+  }
+
+  function buildVote(names, withNone) {
+    state.choice = -1;
+    var box = $("vote-list"); box.textContent = "";
+    var all = names.slice();
+    if (withNone) all.push("Nadie, no hay impostor");
+    all.forEach(function (name, i) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip vote"; b.textContent = name;
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", function () {
+        state.choice = i;
+        Array.prototype.forEach.call(box.children, function (c, j) { c.setAttribute("aria-pressed", j === i ? "true" : "false"); });
+        $("vote-err").textContent = "";
+      });
+      box.appendChild(b);
+    });
+    $("vote-err").textContent = "";
+  }
+
+  function showWait(text, canForce) {
+    $("wait-text").textContent = text;
+    $("force-vote").hidden = !canForce;
+    show("s-wait");
+  }
+
+  function renderResult(data, canControl) {
+    var v = $("verdict"); v.textContent = "";
+    v.className = "verdict " + (data.win ? "win" : "lose");
+    function vel(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; e.textContent = txt; v.appendChild(e); }
+    vel("div", "mark", data.win ? "✓" : "✕");
+    if (data.win && data.none) {
+      vel("h2", "", "¡Tenían razón!");
+      vel("p", "dim", "En esta ronda no había impostor. Ganaron los jugadores.");
+    } else if (data.win) {
+      vel("h2", "", "¡Lo encontraron!");
+      vel("p", "dim", "Ganaron los jugadores. " + data.choiceName + " era el impostor.");
+    } else if (data.none) {
+      vel("h2", "", "¡Perdieron!");
+      vel("p", "dim", data.choiceName + " no era el impostor. En esta ronda no había impostor.");
+    } else {
+      vel("h2", "", "¡Perdieron!");
+      vel("p", "dim", data.saidNobody ? "Dijeron que no había impostor, pero sí lo había."
+                      : (data.noChoice ? "No se pusieron de acuerdo en un solo nombre."
+                                       : data.choiceName + " no era el impostor."));
+      vel("p", "eyebrow", (data.impList.length > 1 ? "Los ganadores son" : "El ganador es"));
+      vel("div", "winner", data.impNames);
+    }
+    if (data.tally) vel("p", "dim", "Votos: " + data.tally);
+    $("res-label").textContent = data.none ? "Esta ronda" : (data.impList.length > 1 ? "Los impostores eran" : "El impostor era");
+    var names = $("res-names"); names.textContent = "";
+    if (data.none) { var z = document.createElement("span"); z.textContent = "Sin impostor"; names.appendChild(z); }
+    data.impList.forEach(function (nm) {
+      var s = document.createElement("span"); s.textContent = nm; names.appendChild(s);
+    });
+    var card = $("res-card"); card.textContent = "";
+    function line(cls, txt) { var d = document.createElement("div"); d.className = cls; d.textContent = txt; card.appendChild(d); }
+    line("small-label", "La palabra era");
+    line("big", data.word);
+    line("small-label", data.cat);
+    var ref = $("res-ref"); ref.textContent = "";
+    ref.appendChild(document.createTextNode("Para leer en grupo: "));
+    var st = document.createElement("strong"); st.textContent = data.ref; ref.appendChild(st);
+    $("again").hidden = !canControl;
+    $("to-setup").hidden = !canControl;
+    $("guest-result-note").hidden = canControl;
+    show("s-result");
+  }
+
+  /* ---------- Un solo teléfono ---------- */
+  function newRound() {
+    var names = state.players.map(function (n, i) { return (n || "").trim() || ("Jugador " + (i + 1)); });
+    var r = makeRound(names);
+    if (!r) { $("err").textContent = "Elige al menos una categoría."; show("s-setup"); return false; }
+    $("err").textContent = "";
+    state.round = r;
     state.idx = 0;
     showPass();
     return true;
@@ -370,7 +605,27 @@
     show("s-pass");
   }
 
+  $("show-card").addEventListener("click", function () {
+    var r = state.round;
+    var isImp = r.impostors.indexOf(state.idx) !== -1;
+    drawCard(isImp, r.word, r.cat, state.hint, r.names[state.idx]);
+    renderDots("card-dots");
+    $("hide-card").textContent = "Listo, ocultar y pasar";
+    show("s-card");
+  });
+
+  $("hide-card").addEventListener("click", function () {
+    if (isOnline()) { sendReady(); return; }
+    state.idx++;
+    if (state.idx < state.round.names.length) showPass();
+    else {
+      var r = state.round;
+      startPlayView(state.minutes * 60, playOrder(r), playInfo(r.names.length, r.impostors.length, r.cat), true);
+    }
+  });
+
   $("start").addEventListener("click", function () {
+    if (isOnline()) { hostStart(); return; }
     var filled = state.players.filter(function (n) { return n.trim(); });
     var uniq = {};
     var dup = false;
@@ -380,140 +635,299 @@
     newRound();
   });
 
-  $("show-card").addEventListener("click", function () {
-    var r = state.round;
-    var isImp = r.impostors.indexOf(state.idx) !== -1;
-    var card = $("card");
-    card.textContent = "";
-    card.className = "card flip" + (isImp ? " impostor" : "");
-    function line(cls, txt) { var d = document.createElement("div"); d.className = cls; d.textContent = txt; card.appendChild(d); }
-    if (isImp) {
-      line("small-label", "Tu papel");
-      line("big", "IMPOSTOR");
-      if (state.hint) line("small-label", "Categoría: " + r.cat);
-      else line("small-label", "No sabes la palabra");
-    } else {
-      line("small-label", "La palabra secreta es");
-      line("big", r.word);
-      line("small-label", r.cat);
-    }
-    $("card-who").textContent = r.names[state.idx];
-    renderDots("card-dots");
-    show("s-card");
-  });
-
-  $("hide-card").addEventListener("click", function () {
-    state.idx++;
-    if (state.idx < state.round.names.length) showPass();
-    else startPlay();
-  });
-
-  function fmt(sec) {
-    var m = Math.floor(sec / 60), s = sec % 60;
-    return m + ":" + (s < 10 ? "0" : "") + s;
-  }
-
-  function startPlay() {
-    var end = Date.now() + state.minutes * 60000;
-    var t = $("timer");
-    t.className = "timer";
-    t.textContent = fmt(state.minutes * 60);
-    var r = state.round, n = r.names.length, k = r.impostors.length;
-    $("play-info").textContent = (n === 2 ? "2 jugadores · puede haber un impostor, o ninguno" : n + " jugadores · " + k + (k === 1 ? " impostor" : " impostores")) + (state.hint ? " · " + r.cat : "");
-    var ord = $("order"); ord.textContent = "";
-    var start = r.names.indexOf(r.starter);
-    for (var j = 0; j < n; j++) {
-      var li = document.createElement("li");
-      li.textContent = r.names[(start + j) % n];
-      if (j === 0) li.className = "first";
-      ord.appendChild(li);
-    }
-    clearInterval(state.timerId);
-    state.timerId = setInterval(function () {
-      var left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
-      t.textContent = left > 0 ? fmt(left) : "¡Tiempo!";
-      if (left === 0) { t.className = "timer done"; clearInterval(state.timerId); }
-    }, 250);
-    show("s-play");
-  }
-
   $("reveal").addEventListener("click", function () {
     clearInterval(state.timerId);
-    state.choice = -1;
-    var box = $("vote-list"); box.textContent = "";
-    state.round.names.forEach(function (name, i) {
-      var b = document.createElement("button");
-      b.type = "button"; b.className = "chip vote"; b.textContent = name;
-      b.setAttribute("aria-pressed", "false");
-      b.addEventListener("click", function () {
-        state.choice = i;
-        Array.prototype.forEach.call(box.children, function (c, j) { c.setAttribute("aria-pressed", j === i ? "true" : "false"); });
-        $("vote-err").textContent = "";
-      });
-      box.appendChild(b);
-    });
-    if (state.round.names.length === 2) {
-      var nb = document.createElement("button");
-      nb.type = "button"; nb.className = "chip vote"; nb.textContent = "Nadie, no hay impostor";
-      nb.setAttribute("aria-pressed", "false");
-      nb.addEventListener("click", function () {
-        state.choice = 2;
-        Array.prototype.forEach.call(box.children, function (c, j) { c.setAttribute("aria-pressed", j === 2 ? "true" : "false"); });
-        $("vote-err").textContent = "";
-      });
-      box.appendChild(nb);
-    }
-    $("vote-err").textContent = "";
+    if (isOnline()) { hostOpenVote(); return; }
+    var names = state.round.names;
+    buildVote(names, names.length === 2);
     show("s-vote");
   });
 
   $("confirm-vote").addEventListener("click", function () {
-    if (state.choice < 0) { $("vote-err").textContent = "Toca el nombre de quien creen que es el impostor."; return; }
-    var r = state.round;
-    var none = r.impostors.length === 0;
-    var saidNobody = state.choice === r.names.length;
-    var win = saidNobody ? none : r.impostors.indexOf(state.choice) !== -1;
-    var impNames = r.impostors.map(function (i) { return r.names[i]; }).join(" y ");
-    var v = $("verdict"); v.textContent = "";
-    v.className = "verdict " + (win ? "win" : "lose");
-    function vel(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; e.textContent = txt; v.appendChild(e); }
-    vel("div", "mark", win ? "✓" : "✕");
-    if (win && none) {
-      vel("h2", "", "¡Tenían razón!");
-      vel("p", "dim", "En esta ronda no había impostor. Ganaron los jugadores.");
-    } else if (win) {
-      vel("h2", "", "¡Lo encontraron!");
-      vel("p", "dim", "Ganaron los jugadores. " + r.names[state.choice] + " era el impostor.");
-    } else if (none) {
-      vel("h2", "", "¡Perdieron!");
-      vel("p", "dim", r.names[state.choice] + " no era el impostor. En esta ronda no había impostor.");
-    } else {
-      vel("h2", "", "¡Perdieron!");
-      vel("p", "dim", saidNobody ? "Dijeron que no había impostor, pero sí lo había." : r.names[state.choice] + " no era el impostor.");
-      vel("p", "eyebrow", r.impostors.length > 1 ? "Los ganadores son" : "El ganador es");
-      vel("div", "winner", impNames);
-    }
-    $("res-label").textContent = none ? "Esta ronda" : (r.impostors.length > 1 ? "Los impostores eran" : "El impostor era");
-    var names = $("res-names"); names.textContent = "";
-    if (none) { var z = document.createElement("span"); z.textContent = "Sin impostor"; names.appendChild(z); }
-    r.impostors.forEach(function (i) {
-      var s = document.createElement("span"); s.textContent = r.names[i]; names.appendChild(s);
-    });
-    var card = $("res-card"); card.textContent = "";
-    function line(cls, txt) { var d = document.createElement("div"); d.className = cls; d.textContent = txt; card.appendChild(d); }
-    line("small-label", "La palabra era");
-    line("big", r.word);
-    line("small-label", r.cat);
-    var ref = $("res-ref"); ref.textContent = "";
-    ref.appendChild(document.createTextNode("Para leer en grupo: "));
-    var st = document.createElement("strong"); st.textContent = r.ref; ref.appendChild(st);
-    show("s-result");
+    if (state.choice < 0) { $("vote-err").textContent = "Toca un nombre antes de confirmar."; return; }
+    if (isOnline()) { submitVote(state.choice); return; }
+    renderResult(evaluate(state.round, state.choice), true);
   });
 
-  $("again").addEventListener("click", newRound);
-  $("to-setup").addEventListener("click", function () { clearInterval(state.timerId); show("s-setup"); });
+  $("again").addEventListener("click", function () {
+    if (isOnline()) { hostStart(); return; }
+    newRound();
+  });
+  $("to-setup").addEventListener("click", function () {
+    clearInterval(state.timerId);
+    if (isOnline() && net.isHost) { broadcastLobby(); return; }
+    show("s-setup");
+  });
 
-  renderPlayers(); renderCats(); renderImpostorOptions();
+  /* ---------- En línea: sala ---------- */
+  function onErr(msg) { $("on-err").textContent = msg || ""; }
+  function genCode() {
+    var L = "ABCDEFGHJKLMNPQRSTUVWXYZ", s = "";
+    for (var i = 0; i < 4; i++) s += L.charAt(Math.floor(Math.random() * L.length));
+    return s;
+  }
+  function sendAll(msg) {
+    net.players.forEach(function (p) { if (p.conn && p.conn.open) p.conn.send(msg); });
+  }
+
+  function renderRoom() {
+    $("room-code").textContent = net.code;
+    var ul = $("room-list"); ul.textContent = "";
+    net.players.forEach(function (p, i) {
+      var li = document.createElement("li");
+      li.textContent = p.name + (i === 0 ? " (anfitrión)" : "");
+      ul.appendChild(li);
+    });
+  }
+
+  function resetNet() {
+    try { if (net.peer) net.peer.destroy(); } catch (e) {}
+    net.peer = null; net.conn = null; net.isHost = false; net.inRoom = false; net.code = "";
+    net.players = []; net.phase = "lobby"; net.round = null; net.ready = {}; net.votes = {};
+  }
+
+  function leaveRoom(msg) {
+    clearInterval(state.timerId);
+    resetNet();
+    $("on-create").disabled = false; $("on-join").disabled = false;
+    renderSetup();
+    onErr(msg);
+    show("s-setup");
+  }
+  $("leave-room").addEventListener("click", function () { leaveRoom(""); });
+
+  function createRoom() {
+    var name = $("on-name").value.trim();
+    if (!name) { onErr("Escribe tu nombre."); return; }
+    if (typeof Peer === "undefined") { onErr("No se pudo cargar la conexión. Revisa tu internet y recarga la página."); return; }
+    onErr("");
+    $("on-create").disabled = true;
+    tryCreate(name, 0);
+  }
+
+  function tryCreate(name, attempt) {
+    var code = genCode();
+    var peer = new Peer("impbib-" + code);
+    var opened = false;
+    peer.on("open", function () {
+      opened = true;
+      net.peer = peer; net.isHost = true; net.inRoom = true; net.code = code; net.phase = "lobby";
+      net.players = [{ name: name, conn: null }];
+      $("on-create").disabled = false;
+      renderRoom(); renderSetup();
+    });
+    peer.on("error", function (e) {
+      if (!opened && e.type === "unavailable-id" && attempt < 5) { try { peer.destroy(); } catch (x) {} tryCreate(name, attempt + 1); return; }
+      if (!opened) { $("on-create").disabled = false; onErr("No se pudo crear la sala. Revisa tu internet e intenta de nuevo."); }
+    });
+    peer.on("connection", function (c) {
+      c.on("data", function (d) { hostData(c, d); });
+      c.on("close", function () { hostLeft(c); });
+    });
+  }
+
+  function idxOf(c) {
+    for (var i = 0; i < net.players.length; i++) if (net.players[i].conn === c) return i;
+    return -1;
+  }
+
+  function hostData(c, d) {
+    if (!d || !d.t) return;
+    if (d.t === "join") {
+      var nm = String(d.name || "").trim().slice(0, 18);
+      function rej(msg) { c.send({ t: "reject", msg: msg }); }
+      if (!nm) { rej("Escribe tu nombre."); return; }
+      if (net.phase !== "lobby") { rej("La partida ya empezó. Espera a la próxima ronda."); return; }
+      if (net.players.length >= 12) { rej("La sala está llena."); return; }
+      if (net.players.some(function (p) { return p.name.toLowerCase() === nm.toLowerCase(); })) { rej("Ya hay alguien con ese nombre en la sala."); return; }
+      net.players.push({ name: nm, conn: c });
+      broadcastLobby();
+    } else if (d.t === "ready") {
+      var i = idxOf(c); if (i >= 0) markReady(i);
+    } else if (d.t === "vote") {
+      var j = idxOf(c); if (j >= 0) recordVote(j, d.choice);
+    }
+  }
+
+  function hostLeft(c) {
+    var i = idxOf(c);
+    if (i < 0) return;
+    if (net.phase === "lobby") { net.players.splice(i, 1); broadcastLobby(); return; }
+    net.players[i].conn = null; net.players[i].gone = true;
+    if (net.phase === "roles") markReady(i);
+    else if (net.phase === "vote") recordVote(i, -1);
+  }
+
+  function broadcastLobby() {
+    net.phase = "lobby";
+    net.players = net.players.filter(function (p) { return !p.gone; });
+    sendAll({ t: "lobby", code: net.code, players: net.players.map(function (p) { return p.name; }) });
+    renderRoom(); renderSetup(); show("s-setup");
+  }
+
+  /* ---------- En línea: invitado ---------- */
+  function joinRoom() {
+    var name = $("on-name").value.trim();
+    var code = $("on-code").value.trim().toUpperCase();
+    if (!name) { onErr("Escribe tu nombre."); return; }
+    if (code.length !== 4) { onErr("El código tiene 4 letras."); return; }
+    if (typeof Peer === "undefined") { onErr("No se pudo cargar la conexión. Revisa tu internet y recarga la página."); return; }
+    onErr("");
+    $("on-join").disabled = true;
+    var peer = new Peer();
+    var joined = false;
+    var timeout = setTimeout(function () {
+      if (!joined) { onErr("No se pudo entrar. Revisa el código y tu internet."); $("on-join").disabled = false; try { peer.destroy(); } catch (e) {} }
+    }, 15000);
+    peer.on("open", function () {
+      var conn = peer.connect("impbib-" + code, { reliable: true });
+      conn.on("open", function () { conn.send({ t: "join", name: name }); });
+      conn.on("data", function (d) {
+        if (d && d.t === "lobby" && !joined) {
+          joined = true; clearTimeout(timeout);
+          net.peer = peer; net.conn = conn; net.isHost = false; net.inRoom = true; net.code = d.code;
+        }
+        if (d && d.t === "reject") {
+          clearTimeout(timeout);
+          onErr(d.msg); $("on-join").disabled = false;
+          try { conn.close(); peer.destroy(); } catch (e) {}
+          return;
+        }
+        guestData(d);
+      });
+      conn.on("close", function () { if (net.inRoom && !net.isHost) leaveRoom("El anfitrión cerró la sala."); });
+    });
+    peer.on("error", function (e) {
+      if (joined) return;
+      clearTimeout(timeout);
+      onErr(e.type === "peer-unavailable" ? "No existe una sala con ese código." : "No se pudo conectar. Revisa tu internet.");
+      $("on-join").disabled = false;
+    });
+  }
+
+  function guestData(d) {
+    if (!d || !d.t) return;
+    if (d.t === "lobby") {
+      net.players = d.players.map(function (n) { return { name: n }; });
+      renderRoom(); renderSetup(); show("s-setup");
+    } else if (d.t === "role") {
+      drawCard(d.imp, d.word, d.cat, d.hint, d.name);
+      $("card-dots").textContent = "";
+      $("hide-card").textContent = "Listo, ya la vi";
+      show("s-card");
+    } else if (d.t === "play") {
+      startPlayView(d.secs, d.order, d.info, false);
+    } else if (d.t === "vote") {
+      buildVote(d.names, d.none);
+      show("s-vote");
+    } else if (d.t === "result") {
+      renderResult(d.data, false);
+    }
+  }
+
+  /* ---------- En línea: partida ---------- */
+  function hostStart() {
+    net.players = net.players.filter(function (p) { return !p.gone; });
+    var n = net.players.length;
+    if (n < 2) { $("err").textContent = "Necesitas al menos 2 jugadores en la sala."; return; }
+    var names = net.players.map(function (p) { return p.name; });
+    var r = makeRound(names);
+    if (!r) { $("err").textContent = "Elige al menos una categoría."; return; }
+    $("err").textContent = "";
+    net.round = r; net.phase = "roles"; net.ready = {}; net.votes = {};
+    net.players.forEach(function (p, i) {
+      var imp = r.impostors.indexOf(i) !== -1;
+      var role = { t: "role", name: p.name, imp: imp, word: imp ? "" : r.word, cat: r.cat, hint: state.hint };
+      if (i === 0) {
+        drawCard(imp, role.word, r.cat, state.hint, p.name);
+        $("card-dots").textContent = "";
+        $("hide-card").textContent = "Listo, ya la vi";
+        show("s-card");
+      } else if (p.conn && p.conn.open) {
+        p.conn.send(role);
+      }
+    });
+  }
+
+  function sendReady() {
+    if (net.isHost) {
+      markReady(0);
+      if (net.phase === "roles") showWait("Esperando a los demás…", false);
+    } else {
+      net.conn.send({ t: "ready" });
+      showWait("Esperando a los demás…", false);
+    }
+  }
+
+  function markReady(i) {
+    net.ready[i] = true;
+    var c = Object.keys(net.ready).length;
+    if (c >= net.players.length) { startPlayOnline(); return; }
+    if (net.isHost && !$("s-wait").hidden) $("wait-text").textContent = "Esperando a los demás… " + c + " de " + net.players.length;
+  }
+
+  function startPlayOnline() {
+    var r = net.round, n = r.names.length, k = r.impostors.length;
+    var order = playOrder(r), info = playInfo(n, k, r.cat);
+    net.phase = "play";
+    sendAll({ t: "play", secs: state.minutes * 60, order: order, info: info });
+    startPlayView(state.minutes * 60, order, info, true);
+  }
+
+  function hostOpenVote() {
+    var r = net.round;
+    net.phase = "vote"; net.votes = {};
+    var withNone = r.names.length === 2;
+    sendAll({ t: "vote", names: r.names, none: withNone });
+    buildVote(r.names, withNone);
+    show("s-vote");
+  }
+
+  function submitVote(choice) {
+    if (net.isHost) {
+      recordVote(0, choice);
+      if (net.phase === "vote") showWait("Voto enviado. Esperando a los demás… " + Object.keys(net.votes).length + " de " + net.players.length, true);
+    } else {
+      net.conn.send({ t: "vote", choice: choice });
+      showWait("Voto enviado. Esperando a los demás…", false);
+    }
+  }
+
+  function recordVote(i, choice) {
+    net.votes[i] = choice;
+    var c = Object.keys(net.votes).length;
+    if (c >= net.players.length) { finishVote(); return; }
+    if (net.isHost && !$("s-wait").hidden) $("wait-text").textContent = "Voto enviado. Esperando a los demás… " + c + " de " + net.players.length;
+  }
+
+  function finishVote() {
+    if (net.phase !== "vote") return;
+    var r = net.round, n = r.names.length;
+    var tally = []; for (var t = 0; t <= n; t++) tally.push(0);
+    Object.keys(net.votes).forEach(function (k) {
+      var ch = net.votes[k];
+      if (typeof ch === "number" && ch >= 0 && ch <= n && (ch < n || n === 2)) tally[ch]++;
+    });
+    var max = Math.max.apply(null, tally), tops = [];
+    tally.forEach(function (v, i) { if (v === max && max > 0) tops.push(i); });
+    var choice = tops.length === 1 ? tops[0] : (n === 2 ? n : -1);
+    var data = evaluate(r, choice);
+    var parts = r.names.map(function (nm, i) { return nm + ": " + tally[i]; });
+    if (n === 2) parts.push("Nadie: " + tally[n]);
+    data.tally = parts.join(" · ");
+    net.phase = "result";
+    sendAll({ t: "result", data: data });
+    renderResult(data, true);
+  }
+
+  function hostForceVote() { if (net.isHost && net.phase === "vote") finishVote(); }
+
+  $("on-create").addEventListener("click", createRoom);
+  $("on-join").addEventListener("click", joinRoom);
+  $("force-vote").addEventListener("click", hostForceVote);
+  $("on-code").addEventListener("input", function (e) { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ""); });
+
+  renderPlayers(); renderCats(); renderSetup();
 })();
 </script>
 
