@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17306b">
+<title>El Impostor Bíblico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Nunito:wght@500;700;800&display=swap">
+<style>
+  /* Layout: una sola columna tipo celular, una pantalla por paso, tarjeta grande para el reparto de palabras. */
+  :root {
+    --lapis: #17306b;
+    --lapis-hi: #214391;
+    --ink: #0d1b43;
+    --sand: #f6ecd2;
+    --sand-dim: #b9c3de;
+    --gold: #f2b632;
+    --seal: #e5484d;
+    --font-display: "Alfa Slab One", "Rockwell", Georgia, serif;
+    --font-body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body { margin: 0; }
+  body {
+    background: var(--lapis);
+    color: var(--sand);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.45;
+    padding-block: 20px 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 460px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  h1, h2 { font-family: var(--font-display); font-weight: 400; margin: 0; text-wrap: balance; line-height: 1.1; }
+  h1 { font-size: 2.1rem; color: var(--gold); }
+  h2 { font-size: 1.6rem; }
+  p { margin: 0; }
+  .eyebrow { font-size: .75rem; letter-spacing: .14em; text-transform: uppercase; color: var(--sand-dim); font-weight: 800; }
+  .dim { color: var(--sand-dim); }
+  .player-name { font-family: var(--font-display); font-weight: 400; font-size: clamp(2.8rem, 15vw, 4.2rem); line-height: 1.05; color: var(--gold); overflow-wrap: anywhere; margin: 0; }
+  .player-name.card-name { font-size: clamp(2.2rem, 12vw, 3.2rem); text-align: center; }
+  section { display: flex; flex-direction: column; gap: 18px; }
+  .panel { background: var(--ink); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .panel h3 { margin: 0; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: var(--sand-dim); }
+
+  button, select, input { font: inherit; color: inherit; }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .btn {
+    min-height: 52px; padding: 12px 20px; border: 0; border-radius: 12px;
+    background: var(--gold); color: var(--ink); font-weight: 800; font-size: 1.05rem; cursor: pointer;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn.ghost { background: transparent; color: var(--sand); border: 2px solid var(--sand-dim); }
+  .btn.small { min-height: 44px; padding: 8px 14px; font-size: .95rem; }
+
+  .player-row { display: flex; gap: 8px; }
+  .player-row input {
+    flex: 1; min-width: 0; min-height: 46px; padding: 8px 12px; border-radius: 10px;
+    border: 2px solid transparent; background: var(--lapis-hi); color: var(--sand);
+  }
+  .player-row button {
+    width: 46px; min-height: 46px; border: 0; border-radius: 10px; background: var(--lapis-hi);
+    color: var(--sand); font-size: 1.3rem; cursor: pointer;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 2px solid var(--sand-dim);
+    background: transparent; font-weight: 700; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+  .opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+  .opt select {
+    min-height: 44px; padding: 6px 10px; border-radius: 10px; border: 2px solid transparent;
+    background: var(--lapis-hi); color: var(--sand);
+  }
+  .opt input[type="checkbox"] { width: 24px; height: 24px; accent-color: var(--gold); }
+  .error { color: var(--seal); font-weight: 700; min-height: 1.4em; }
+
+  .card {
+    background: var(--sand); color: var(--ink); border-radius: 18px; padding: 28px 20px;
+    min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; text-align: center; border: 6px solid var(--gold);
+  }
+  .card .small-label { font-size: .75rem; letter-spacing: .14em; text-transform: uppercase; font-weight: 800; opacity: .7; }
+  .card .big { font-family: var(--font-display); font-size: 2.3rem; line-height: 1.1; overflow-wrap: anywhere; }
+  .card.impostor { background: var(--seal); color: #fff; border-color: #fff; }
+  .card.impostor .big { font-size: 2.6rem; }
+  .flip { animation: flip .35s ease; }
+  @keyframes flip { from { transform: rotateY(90deg); opacity: 0; } to { transform: rotateY(0); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .flip { animation: none; } }
+
+  .dots { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--lapis-hi); border: 2px solid var(--sand-dim); }
+  .dots i.done { background: var(--gold); border-color: var(--gold); }
+  .dots i.now { background: transparent; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(242,182,50,.35); }
+  .stage { background: var(--ink); border-radius: 18px; padding: 28px 20px; min-height: 340px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; }
+  .seal-mark { width: 84px; height: 84px; border-radius: 50%; border: 5px solid var(--gold); color: var(--gold); display: grid; place-items: center; font-family: var(--font-display); font-size: 3rem; margin-bottom: 8px; }
+  .order { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; counter-reset: turno; }
+  .order li { counter-increment: turno; display: flex; align-items: center; gap: 12px; background: var(--lapis-hi); border-radius: 10px; padding: 8px 12px; font-weight: 700; min-height: 44px; overflow-wrap: anywhere; }
+  .order li::before { content: counter(turno); width: 28px; height: 28px; flex: none; border-radius: 50%; background: var(--ink); color: var(--gold); display: grid; place-items: center; font-size: .9rem; font-weight: 800; }
+  .order li.first { background: var(--gold); color: var(--ink); }
+  .order li.first::before { background: var(--ink); }
+  .vote-list { display: flex; flex-direction: column; gap: 10px; }
+  .chip.vote { width: 100%; min-height: 58px; font-size: 1.25rem; text-align: center; overflow-wrap: anywhere; }
+  .verdict { text-align: center; border-radius: 18px; padding: 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; background: var(--ink); }
+  .verdict .mark { width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-display); font-size: 6.5rem; line-height: 1; }
+  .verdict.lose .mark { background: var(--seal); color: #fff; }
+  .verdict.win .mark { background: var(--gold); color: var(--ink); }
+  .verdict .winner { font-family: var(--font-display); font-size: 2rem; color: var(--gold); overflow-wrap: anywhere; line-height: 1.1; }
+  .timer { font-family: var(--font-display); font-size: 4.5rem; text-align: center; font-variant-numeric: tabular-nums; color: var(--gold); }
+  .timer.done { color: var(--seal); }
+  .starter { text-align: center; font-size: 1.1rem; }
+  .starter strong { color: var(--gold); }
+  .names { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .names span { background: var(--lapis-hi); padding: 6px 12px; border-radius: 999px; font-weight: 700; }
+  .ref { background: var(--ink); border-radius: 12px; padding: 14px; text-align: center; }
+  .ref strong { color: var(--gold); }
+  .tag { align-self: flex-start; background: var(--gold); color: var(--ink); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; }
+</style>
+</head>
+<body>
+
+<main class="wrap">
+  <header id="top">
+    <p class="eyebrow">Juego para grupos de jóvenes</p>
+    <h1>El Impostor Bíblico</h1>
+  </header>
+
+  <!-- 1. AJUSTES -->
+  <section id="s-setup">
+    <p class="dim">Un solo teléfono para todos. Cada quien ve en secreto la palabra de la Biblia. El impostor no la sabe y tiene que disimular.</p>
+
+    <div class="panel">
+      <h3>Jugadores <span class="tag" style="margin-left:6px">Nombres de ejemplo</span></h3>
+      <div id="players" style="display:flex;flex-direction:column;gap:8px"></div>
+      <button class="btn ghost small" id="add-player" type="button">+ Agregar jugador</button>
+    </div>
+
+    <div class="panel">
+      <h3>Categorías</h3>
+      <div class="chips" id="cats"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Opciones</h3>
+      <label class="opt" for="o-imp"><span>Impostores</span>
+        <select id="o-imp"></select>
+      </label>
+      <label class="opt" for="o-min"><span>Tiempo de pistas</span>
+        <select id="o-min">
+          <option value="2">2 minutos</option>
+          <option value="3" selected>3 minutos</option>
+          <option value="5">5 minutos</option>
+        </select>
+      </label>
+      <label class="opt" for="o-hint"><span>El impostor ve la categoría</span>
+        <input type="checkbox" id="o-hint" checked>
+      </label>
+    </div>
+
+    <p class="error" id="err" role="alert"></p>
+    <button class="btn" id="start" type="button">Empezar partida</button>
+  </section>
+
+  <!-- 2. REPARTO -->
+  <section id="s-pass" hidden>
+    <div class="dots" id="pass-dots" aria-hidden="true"></div>
+    <div class="stage">
+      <div class="seal-mark" aria-hidden="true">?</div>
+      <p class="eyebrow">Turno de</p>
+      <h2 class="player-name" id="pass-name"></h2>
+      <p class="dim" id="pass-count"></p>
+      <p class="dim">Toma el teléfono. Los demás no deben mirar la pantalla.</p>
+    </div>
+    <button class="btn" id="show-card" type="button">Ver mi carta</button>
+  </section>
+
+  <section id="s-card" hidden>
+    <div class="dots" id="card-dots" aria-hidden="true"></div>
+    <p class="player-name card-name" id="card-who"></p>
+    <div class="card flip" id="card" aria-live="polite"></div>
+    <p class="dim" style="text-align:center">No le muestres tu carta a nadie.</p>
+    <button class="btn" id="hide-card" type="button">Listo, ocultar y pasar</button>
+  </section>
+
+  <!-- 3. PISTAS -->
+  <section id="s-play" hidden>
+    <p class="eyebrow" style="text-align:center">Ronda de pistas</p>
+    <div class="timer" id="timer">3:00</div>
+    <p class="dim" id="play-info" style="text-align:center"></p>
+    <div class="panel">
+      <h3>Orden para dar pistas</h3>
+      <ol class="order" id="order"></ol>
+    </div>
+    <div class="panel">
+      <h3>Reglas rápidas</h3>
+      <p>Una pista corta por turno, sin decir la palabra. Si eres el impostor, escucha y da una pista creíble. Al terminar el tiempo, todos señalan a quién creen que es.</p>
+    </div>
+    <button class="btn" id="reveal" type="button">Votar: ¿quién es el impostor?</button>
+  </section>
+
+  <!-- 4. VOTACIÓN -->
+  <section id="s-vote" hidden>
+    <p class="eyebrow" style="text-align:center">Votación</p>
+    <h2 style="text-align:center">¿Quién es el impostor?</h2>
+    <p class="dim" style="text-align:center">Pónganse de acuerdo y toquen un nombre.</p>
+    <div class="vote-list" id="vote-list"></div>
+    <p class="error" id="vote-err" role="alert" style="text-align:center"></p>
+    <button class="btn" id="confirm-vote" type="button">Confirmar voto</button>
+  </section>
+
+  <!-- 5. RESULTADO -->
+  <section id="s-result" hidden>
+    <div class="verdict" id="verdict"></div>
+    <p class="eyebrow" id="res-label"></p>
+    <div class="names" id="res-names"></div>
+    <div class="card" id="res-card"></div>
+    <div class="ref" id="res-ref"></div>
+    <button class="btn" id="again" type="button">Otra ronda con las mismas personas</button>
+    <button class="btn ghost" id="to-setup" type="button">Cambiar ajustes</button>
+  </section>
+</main>
+
+<script>
+(function () {
+  var DATA = {
+    personajes: { label: "Personajes", words: [
+      ["Moisés","Éxodo 3"],["David","1 Samuel 17"],["Daniel","Daniel 6"],["Rut","Rut 1"],
+      ["Ester","Ester 4"],["José","Génesis 37"],["Noé","Génesis 6"],["Sansón","Jueces 16"],
+      ["Jonás","Jonás 1"],["Pablo","Hechos 9"],["Pedro","Mateo 14"],["Abraham","Génesis 12"],
+      ["Débora","Jueces 4"],["Zaqueo","Lucas 19"],["Goliat","1 Samuel 17"],["Elías","1 Reyes 18"]
+    ]},
+    lugares: { label: "Lugares", words: [
+      ["Jericó","Josué 6"],["Belén","Lucas 2"],["Getsemaní","Mateo 26"],["Nazaret","Lucas 1"],
+      ["Edén","Génesis 2"],["Monte Sinaí","Éxodo 19"],["Babilonia","Daniel 1"],["Egipto","Éxodo 1"],
+      ["Jerusalén","2 Crónicas 6"],["Betania","Juan 11"],["Damasco","Hechos 9"],["Nínive","Jonás 3"],
+      ["Gólgota","Juan 19"],["Mar Rojo","Éxodo 14"],["Río Jordán","Mateo 3"],["Sodoma","Génesis 19"]
+    ]},
+    libros: { label: "Libros", words: [
+      ["Génesis","Génesis 1"],["Éxodo","Éxodo 20"],["Salmos","Salmos 23"],["Proverbios","Proverbios 3"],
+      ["Isaías","Isaías 53"],["Daniel","Daniel 3"],["Mateo","Mateo 5"],["Juan","Juan 3"],
+      ["Hechos","Hechos 2"],["Romanos","Romanos 8"],["Apocalipsis","Apocalipsis 21"],["Job","Job 1"],
+      ["Rut","Rut 1"],["Ester","Ester 4"],["Jonás","Jonás 1"],["Santiago","Santiago 1"]
+    ]}
+  };
+
+  var state = {
+    players: ["Ana", "Luis", "Sara", "David"],
+    cats: { personajes: true, lugares: true, libros: true },
+    impostors: 1, minutes: 3, hint: true,
+    round: null, idx: 0, timerId: null
+  };
+
+  function $(id) { return document.getElementById(id); }
+  var screens = ["s-setup", "s-pass", "s-card", "s-play", "s-vote", "s-result"];
+  function show(id) {
+    screens.forEach(function (s) { $(s).hidden = (s !== id); });
+    $("top").hidden = (id !== "s-setup");
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Ajustes ---------- */
+  function renderPlayers() {
+    var box = $("players");
+    box.textContent = "";
+    state.players.forEach(function (name, i) {
+      var row = document.createElement("div");
+      row.className = "player-row";
+      var inp = document.createElement("input");
+      inp.type = "text"; inp.id = "p-" + i; inp.value = name; inp.maxLength = 18;
+      inp.setAttribute("aria-label", "Nombre del jugador " + (i + 1));
+      inp.addEventListener("input", function () { state.players[i] = inp.value; });
+      var del = document.createElement("button");
+      del.type = "button"; del.textContent = "×";
+      del.setAttribute("aria-label", "Quitar a " + (name || "jugador " + (i + 1)));
+      del.addEventListener("click", function () {
+        if (state.players.length <= 3) { $("err").textContent = "Se necesitan al menos 3 jugadores."; return; }
+        state.players.splice(i, 1); renderPlayers(); renderImpostorOptions();
+      });
+      row.appendChild(inp); row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+
+  function renderCats() {
+    var box = $("cats");
+    box.textContent = "";
+    Object.keys(DATA).forEach(function (key) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip"; b.textContent = DATA[key].label;
+      b.setAttribute("aria-pressed", state.cats[key] ? "true" : "false");
+      b.addEventListener("click", function () {
+        state.cats[key] = !state.cats[key];
+        b.setAttribute("aria-pressed", state.cats[key] ? "true" : "false");
+      });
+      box.appendChild(b);
+    });
+  }
+
+  function renderImpostorOptions() {
+    var max = Math.max(1, Math.floor((state.players.length - 1) / 2));
+    var sel = $("o-imp");
+    sel.textContent = "";
+    for (var n = 1; n <= max; n++) {
+      var o = document.createElement("option");
+      o.value = String(n); o.textContent = String(n);
+      sel.appendChild(o);
+    }
+    if (state.impostors > max) state.impostors = max;
+    sel.value = String(state.impostors);
+  }
+
+  $("add-player").addEventListener("click", function () {
+    state.players.push(""); renderPlayers(); renderImpostorOptions();
+    var last = $("p-" + (state.players.length - 1)); if (last) last.focus();
+  });
+  $("o-imp").addEventListener("change", function (e) { state.impostors = parseInt(e.target.value, 10); });
+  $("o-min").addEventListener("change", function (e) { state.minutes = parseInt(e.target.value, 10); });
+  $("o-hint").addEventListener("change", function (e) { state.hint = e.target.checked; });
+
+  /* ---------- Partida ---------- */
+  function shuffle(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function newRound() {
+    var names = state.players.map(function (n, i) { return (n || "").trim() || ("Jugador " + (i + 1)); });
+    var pool = [];
+    Object.keys(DATA).forEach(function (k) {
+      if (state.cats[k]) DATA[k].words.forEach(function (w) { pool.push({ word: w[0], ref: w[1], cat: DATA[k].label }); });
+    });
+    if (!pool.length) { $("err").textContent = "Elige al menos una categoría."; show("s-setup"); return false; }
+    $("err").textContent = "";
+    var pick = pool[Math.floor(Math.random() * pool.length)];
+    var order = shuffle(names.map(function (_, i) { return i; }));
+    var imp = order.slice(0, state.impostors);
+    state.round = { names: names, word: pick.word, ref: pick.ref, cat: pick.cat, impostors: imp,
+                    starter: names[Math.floor(Math.random() * names.length)] };
+    state.idx = 0;
+    showPass();
+    return true;
+  }
+
+  function renderDots(id) {
+    var box = $(id); box.textContent = "";
+    state.round.names.forEach(function (_, i) {
+      var d = document.createElement("i");
+      d.className = i < state.idx ? "done" : (i === state.idx ? "now" : "");
+      box.appendChild(d);
+    });
+  }
+
+  function showPass() {
+    var r = state.round;
+    $("pass-count").textContent = "Jugador " + (state.idx + 1) + " de " + r.names.length;
+    $("pass-name").textContent = r.names[state.idx];
+    renderDots("pass-dots");
+    show("s-pass");
+  }
+
+  $("start").addEventListener("click", function () {
+    var filled = state.players.filter(function (n) { return n.trim(); });
+    var uniq = {};
+    var dup = false;
+    filled.forEach(function (n) { var k = n.trim().toLowerCase(); if (uniq[k]) dup = true; uniq[k] = 1; });
+    if (state.players.length < 3) { $("err").textContent = "Se necesitan al menos 3 jugadores."; return; }
+    if (dup) { $("err").textContent = "Hay dos jugadores con el mismo nombre."; return; }
+    newRound();
+  });
+
+  $("show-card").addEventListener("click", function () {
+    var r = state.round;
+    var isImp = r.impostors.indexOf(state.idx) !== -1;
+    var card = $("card");
+    card.textContent = "";
+    card.className = "card flip" + (isImp ? " impostor" : "");
+    function line(cls, txt) { var d = document.createElement("div"); d.className = cls; d.textContent = txt; card.appendChild(d); }
+    if (isImp) {
+      line("small-label", "Tu papel");
+      line("big", "IMPOSTOR");
+      if (state.hint) line("small-label", "Categoría: " + r.cat);
+      else line("small-label", "No sabes la palabra");
+    } else {
+      line("small-label", "La palabra secreta es");
+      line("big", r.word);
+      line("small-label", r.cat);
+    }
+    $("card-who").textContent = r.names[state.idx];
+    renderDots("card-dots");
+    show("s-card");
+  });
+
+  $("hide-card").addEventListener("click", function () {
+    state.idx++;
+    if (state.idx < state.round.names.length) showPass();
+    else startPlay();
+  });
+
+  function fmt(sec) {
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function startPlay() {
+    var end = Date.now() + state.minutes * 60000;
+    var t = $("timer");
+    t.className = "timer";
+    t.textContent = fmt(state.minutes * 60);
+    var r = state.round, n = r.names.length, k = r.impostors.length;
+    $("play-info").textContent = n + " jugadores · " + k + (k === 1 ? " impostor" : " impostores") + (state.hint ? " · " + r.cat : "");
+    var ord = $("order"); ord.textContent = "";
+    var start = r.names.indexOf(r.starter);
+    for (var j = 0; j < n; j++) {
+      var li = document.createElement("li");
+      li.textContent = r.names[(start + j) % n];
+      if (j === 0) li.className = "first";
+      ord.appendChild(li);
+    }
+    clearInterval(state.timerId);
+    state.timerId = setInterval(function () {
+      var left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      t.textContent = left > 0 ? fmt(left) : "¡Tiempo!";
+      if (left === 0) { t.className = "timer done"; clearInterval(state.timerId); }
+    }, 250);
+    show("s-play");
+  }
+
+  $("reveal").addEventListener("click", function () {
+    clearInterval(state.timerId);
+    state.choice = -1;
+    var box = $("vote-list"); box.textContent = "";
+    state.round.names.forEach(function (name, i) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip vote"; b.textContent = name;
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", function () {
+        state.choice = i;
+        Array.prototype.forEach.call(box.children, function (c, j) { c.setAttribute("aria-pressed", j === i ? "true" : "false"); });
+        $("vote-err").textContent = "";
+      });
+      box.appendChild(b);
+    });
+    $("vote-err").textContent = "";
+    show("s-vote");
+  });
+
+  $("confirm-vote").addEventListener("click", function () {
+    if (state.choice < 0) { $("vote-err").textContent = "Toca el nombre de quien creen que es el impostor."; return; }
+    var r = state.round;
+    var win = r.impostors.indexOf(state.choice) !== -1;
+    var impNames = r.impostors.map(function (i) { return r.names[i]; }).join(" y ");
+    var v = $("verdict"); v.textContent = "";
+    v.className = "verdict " + (win ? "win" : "lose");
+    function vel(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; e.textContent = txt; v.appendChild(e); }
+    vel("div", "mark", win ? "✓" : "✕");
+    if (win) {
+      vel("h2", "", "¡Lo encontraron!");
+      vel("p", "dim", "Ganaron los jugadores. " + r.names[state.choice] + " era el impostor.");
+    } else {
+      vel("h2", "", "¡Perdieron!");
+      vel("p", "dim", r.names[state.choice] + " no era el impostor.");
+      vel("p", "eyebrow", r.impostors.length > 1 ? "Los ganadores son" : "El ganador es");
+      vel("div", "winner", impNames);
+    }
+    $("res-label").textContent = r.impostors.length > 1 ? "Los impostores eran" : "El impostor era";
+    var names = $("res-names"); names.textContent = "";
+    r.impostors.forEach(function (i) {
+      var s = document.createElement("span"); s.textContent = r.names[i]; names.appendChild(s);
+    });
+    var card = $("res-card"); card.textContent = "";
+    function line(cls, txt) { var d = document.createElement("div"); d.className = cls; d.textContent = txt; card.appendChild(d); }
+    line("small-label", "La palabra era");
+    line("big", r.word);
+    line("small-label", r.cat);
+    var ref = $("res-ref"); ref.textContent = "";
+    ref.appendChild(document.createTextNode("Para leer en grupo: "));
+    var st = document.createElement("strong"); st.textContent = r.ref; ref.appendChild(st);
+    show("s-result");
+  });
+
+  $("again").addEventListener("click", newRound);
+  $("to-setup").addEventListener("click", function () { clearInterval(state.timerId); show("s-setup"); });
+
+  renderPlayers(); renderCats(); renderImpostorOptions();
+})();
+</script>
+
+</body>
+</html>
