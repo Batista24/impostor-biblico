@@ -23,6 +23,7 @@
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { min-height: 100%; }
   body { margin: 0; }
   body {
@@ -138,6 +139,7 @@
     <div class="panel">
       <h3>Jugadores <span class="tag" style="margin-left:6px">Nombres de ejemplo</span></h3>
       <div id="players" style="display:flex;flex-direction:column;gap:8px"></div>
+      <p class="dim" id="two-note" hidden>Con 2 jugadores, cada ronda puede tener un impostor o ninguno.</p>
       <button class="btn ghost small" id="add-player" type="button">+ Agregar jugador</button>
     </div>
 
@@ -279,12 +281,13 @@
       del.type = "button"; del.textContent = "×";
       del.setAttribute("aria-label", "Quitar a " + (name || "jugador " + (i + 1)));
       del.addEventListener("click", function () {
-        if (state.players.length <= 3) { $("err").textContent = "Se necesitan al menos 3 jugadores."; return; }
+        if (state.players.length <= 2) { $("err").textContent = "Se necesitan al menos 2 jugadores."; return; }
         state.players.splice(i, 1); renderPlayers(); renderImpostorOptions();
       });
       row.appendChild(inp); row.appendChild(del);
       box.appendChild(row);
     });
+    $("two-note").hidden = state.players.length !== 2;
   }
 
   function renderCats() {
@@ -342,7 +345,7 @@
     $("err").textContent = "";
     var pick = pool[Math.floor(Math.random() * pool.length)];
     var order = shuffle(names.map(function (_, i) { return i; }));
-    var imp = order.slice(0, state.impostors);
+    var imp = names.length === 2 ? (function () { var x = Math.floor(Math.random() * 3); return x < 2 ? [x] : []; })() : order.slice(0, state.impostors);
     state.round = { names: names, word: pick.word, ref: pick.ref, cat: pick.cat, impostors: imp,
                     starter: names[Math.floor(Math.random() * names.length)] };
     state.idx = 0;
@@ -372,7 +375,7 @@
     var uniq = {};
     var dup = false;
     filled.forEach(function (n) { var k = n.trim().toLowerCase(); if (uniq[k]) dup = true; uniq[k] = 1; });
-    if (state.players.length < 3) { $("err").textContent = "Se necesitan al menos 3 jugadores."; return; }
+    if (state.players.length < 2) { $("err").textContent = "Se necesitan al menos 2 jugadores."; return; }
     if (dup) { $("err").textContent = "Hay dos jugadores con el mismo nombre."; return; }
     newRound();
   });
@@ -416,7 +419,7 @@
     t.className = "timer";
     t.textContent = fmt(state.minutes * 60);
     var r = state.round, n = r.names.length, k = r.impostors.length;
-    $("play-info").textContent = n + " jugadores · " + k + (k === 1 ? " impostor" : " impostores") + (state.hint ? " · " + r.cat : "");
+    $("play-info").textContent = (n === 2 ? "2 jugadores · puede haber un impostor, o ninguno" : n + " jugadores · " + k + (k === 1 ? " impostor" : " impostores")) + (state.hint ? " · " + r.cat : "");
     var ord = $("order"); ord.textContent = "";
     var start = r.names.indexOf(r.starter);
     for (var j = 0; j < n; j++) {
@@ -449,6 +452,17 @@
       });
       box.appendChild(b);
     });
+    if (state.round.names.length === 2) {
+      var nb = document.createElement("button");
+      nb.type = "button"; nb.className = "chip vote"; nb.textContent = "Nadie, no hay impostor";
+      nb.setAttribute("aria-pressed", "false");
+      nb.addEventListener("click", function () {
+        state.choice = 2;
+        Array.prototype.forEach.call(box.children, function (c, j) { c.setAttribute("aria-pressed", j === 2 ? "true" : "false"); });
+        $("vote-err").textContent = "";
+      });
+      box.appendChild(nb);
+    }
     $("vote-err").textContent = "";
     show("s-vote");
   });
@@ -456,23 +470,32 @@
   $("confirm-vote").addEventListener("click", function () {
     if (state.choice < 0) { $("vote-err").textContent = "Toca el nombre de quien creen que es el impostor."; return; }
     var r = state.round;
-    var win = r.impostors.indexOf(state.choice) !== -1;
+    var none = r.impostors.length === 0;
+    var saidNobody = state.choice === r.names.length;
+    var win = saidNobody ? none : r.impostors.indexOf(state.choice) !== -1;
     var impNames = r.impostors.map(function (i) { return r.names[i]; }).join(" y ");
     var v = $("verdict"); v.textContent = "";
     v.className = "verdict " + (win ? "win" : "lose");
     function vel(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; e.textContent = txt; v.appendChild(e); }
     vel("div", "mark", win ? "✓" : "✕");
-    if (win) {
+    if (win && none) {
+      vel("h2", "", "¡Tenían razón!");
+      vel("p", "dim", "En esta ronda no había impostor. Ganaron los jugadores.");
+    } else if (win) {
       vel("h2", "", "¡Lo encontraron!");
       vel("p", "dim", "Ganaron los jugadores. " + r.names[state.choice] + " era el impostor.");
+    } else if (none) {
+      vel("h2", "", "¡Perdieron!");
+      vel("p", "dim", r.names[state.choice] + " no era el impostor. En esta ronda no había impostor.");
     } else {
       vel("h2", "", "¡Perdieron!");
-      vel("p", "dim", r.names[state.choice] + " no era el impostor.");
+      vel("p", "dim", saidNobody ? "Dijeron que no había impostor, pero sí lo había." : r.names[state.choice] + " no era el impostor.");
       vel("p", "eyebrow", r.impostors.length > 1 ? "Los ganadores son" : "El ganador es");
       vel("div", "winner", impNames);
     }
-    $("res-label").textContent = r.impostors.length > 1 ? "Los impostores eran" : "El impostor era";
+    $("res-label").textContent = none ? "Esta ronda" : (r.impostors.length > 1 ? "Los impostores eran" : "El impostor era");
     var names = $("res-names"); names.textContent = "";
+    if (none) { var z = document.createElement("span"); z.textContent = "Sin impostor"; names.appendChild(z); }
     r.impostors.forEach(function (i) {
       var s = document.createElement("span"); s.textContent = r.names[i]; names.appendChild(s);
     });
