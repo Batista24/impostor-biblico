@@ -127,6 +127,34 @@
   .join-row input { flex: 1; min-width: 0; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 2px solid transparent; background: var(--lapis-hi); color: var(--sand); text-transform: uppercase; letter-spacing: .2em; font-weight: 800; text-align: center; }
   .field { width: 100%; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 2px solid transparent; background: var(--lapis-hi); color: var(--sand); }
   .tag { align-self: flex-start; background: var(--gold); color: var(--ink); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; }
+
+  /* Chat de la sala (solo en línea) */
+  body.has-chat { padding-bottom: 100px; }
+  .chat-fab { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px)); z-index: 40; width: 60px; height: 60px; border-radius: 50%; border: 0; background: var(--gold); color: var(--ink); font-size: 1.6rem; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.45); display: grid; place-items: center; }
+  .chat-fab .badge { position: absolute; top: -4px; right: -4px; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 12px; background: var(--seal); color: #fff; font-size: .8rem; font-weight: 800; display: grid; place-items: center; }
+  .chat-panel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; margin: 0 auto; max-width: 460px; height: min(75vh, 560px); height: min(75dvh, 560px); background: var(--ink); border-radius: 18px 18px 0 0; box-shadow: 0 -6px 24px rgba(0,0,0,.55); display: flex; flex-direction: column; padding: 14px 14px max(14px, env(safe-area-inset-bottom, 0px)); gap: 10px; }
+  .chat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .chat-head h3 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; color: var(--gold); }
+  .chat-close { min-width: 44px; min-height: 44px; border: 0; border-radius: 10px; background: var(--lapis-hi); color: var(--sand); font-size: 1.3rem; cursor: pointer; }
+  .chat-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; overscroll-behavior: contain; }
+  .chat-empty { color: var(--sand-dim); text-align: center; margin: auto; padding: 0 12px; }
+  .msg { max-width: 85%; align-self: flex-start; background: var(--lapis-hi); border-radius: 14px 14px 14px 4px; padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+  .msg.mine { align-self: flex-end; background: var(--gold); color: var(--ink); border-radius: 14px 14px 4px 14px; }
+  .msg .who { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--sand-dim); }
+  .msg.mine .who { color: var(--ink); opacity: .7; }
+  .msg audio { width: 100%; min-width: 200px; height: 40px; }
+  .chat-form { display: flex; gap: 8px; align-items: stretch; }
+  .chat-form input { flex: 1; min-width: 0; min-height: 48px; border-radius: 12px; border: 2px solid var(--sand-dim); background: var(--lapis); padding: 8px 12px; }
+  .chat-form button { min-height: 48px; min-width: 48px; border: 0; border-radius: 12px; font-weight: 800; cursor: pointer; }
+  .chat-mic { background: var(--lapis-hi); color: var(--sand); font-size: 1.3rem; }
+  .chat-send { background: var(--gold); color: var(--ink); padding: 0 14px; }
+  .chat-rec { display: flex; align-items: center; gap: 8px; background: var(--lapis); border-radius: 12px; padding: 8px 10px; }
+  .chat-rec .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--seal); animation: pulse 1s infinite; }
+  .chat-rec .rt { flex: 1; font-weight: 800; }
+  .chat-rec button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; font-weight: 800; cursor: pointer; background: var(--lapis-hi); color: var(--sand); }
+  .chat-rec button.go { background: var(--gold); color: var(--ink); }
+  @keyframes pulse { 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .chat-rec .dot { animation: none; } }
 </style>
 </head>
 <body>
@@ -272,6 +300,27 @@
   </section>
 </main>
 
+<!-- CHAT (solo en línea) -->
+<button class="chat-fab" id="chat-fab" type="button" hidden aria-label="Abrir chat">💬<span class="badge" id="chat-badge" hidden>0</span></button>
+<div class="chat-panel" id="chat-panel" role="dialog" aria-label="Chat de la sala" hidden>
+  <div class="chat-head">
+    <h3>Chat de la sala</h3>
+    <button class="chat-close" id="chat-close" type="button" aria-label="Cerrar chat">✕</button>
+  </div>
+  <div class="chat-list" id="chat-list" aria-live="polite"></div>
+  <p class="error" id="chat-err" role="alert" style="min-height:0"></p>
+  <div class="chat-rec" id="chat-rec" hidden>
+    <span class="dot" aria-hidden="true"></span><span class="rt" id="chat-rt">Grabando 0:00</span>
+    <button type="button" id="chat-rec-cancel">Cancelar</button>
+    <button type="button" id="chat-rec-send" class="go">Enviar voz</button>
+  </div>
+  <form class="chat-form" id="chat-form" autocomplete="off">
+    <input id="chat-input" type="text" maxlength="300" placeholder="Escribe un mensaje…" aria-label="Mensaje">
+    <button type="button" class="chat-mic" id="chat-mic" aria-label="Grabar nota de voz">🎤</button>
+    <button type="submit" class="chat-send">Enviar</button>
+  </form>
+</div>
+
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 (function () {
@@ -390,6 +439,7 @@
       ? "Cuando estén todos, toca Empezar partida."
       : "Esperando a que el anfitrión empiece la partida…";
     renderImpostorOptions();
+    updateChatUi();
   }
 
   $("m-local").addEventListener("click", function () { state.mode = "local"; renderSetup(); });
@@ -695,6 +745,7 @@
     try { if (net.peer) net.peer.destroy(); } catch (e) {}
     net.peer = null; net.conn = null; net.isHost = false; net.inRoom = false; net.code = "";
     net.players = []; net.phase = "lobby"; net.round = null; net.ready = {}; net.votes = {};
+    chatReset();
   }
 
   function leaveRoom(msg) {
@@ -723,7 +774,7 @@
     peer.on("open", function () {
       opened = true;
       net.peer = peer; net.isHost = true; net.inRoom = true; net.code = code; net.phase = "lobby";
-      net.players = [{ name: name, conn: null }];
+      net.players = [{ name: name, conn: null }]; net.me = name;
       $("on-create").disabled = false;
       renderRoom(); renderSetup();
     });
@@ -757,6 +808,8 @@
       var i = idxOf(c); if (i >= 0) markReady(i);
     } else if (d.t === "vote") {
       var j = idxOf(c); if (j >= 0) recordVote(j, d.choice);
+    } else if (d.t === "chat" || d.t === "voice") {
+      hostChat(c, d);
     }
   }
 
@@ -796,7 +849,7 @@
       conn.on("data", function (d) {
         if (d && d.t === "lobby" && !joined) {
           joined = true; clearTimeout(timeout);
-          net.peer = peer; net.conn = conn; net.isHost = false; net.inRoom = true; net.code = d.code;
+          net.peer = peer; net.conn = conn; net.isHost = false; net.inRoom = true; net.code = d.code; net.me = name;
         }
         if (d && d.t === "reject") {
           clearTimeout(timeout);
@@ -833,6 +886,8 @@
       show("s-vote");
     } else if (d.t === "result") {
       renderResult(d.data, false, d.me);
+    } else if (d.t === "chat" || d.t === "voice") {
+      guestChat(d);
     }
   }
 
@@ -955,6 +1010,186 @@
   $("on-join").addEventListener("click", joinRoom);
   $("force-vote").addEventListener("click", hostForceVote);
   $("on-code").addEventListener("input", function (e) { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ""); });
+
+
+  /* ---------- Chat de la sala (texto y voz) ---------- */
+  var chat = { open: false, unread: 0, rec: null, cancel: false, timer: 0, t0: 0, stream: null };
+  var MAX_VOICE_SECS = 30, MAX_VOICE_BYTES = 600000;
+
+  function chatErr(t) { $("chat-err").textContent = t || ""; $("chat-err").style.minHeight = t ? "1.4em" : "0"; }
+
+  function updateChatUi() {
+    var on = net.inRoom;
+    $("chat-fab").hidden = !on || chat.open;
+    document.body.classList.toggle("has-chat", on);
+    if (!on) { $("chat-panel").hidden = true; chat.open = false; }
+    $("chat-mic").hidden = !(window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    var b = $("chat-badge");
+    b.hidden = chat.unread === 0;
+    b.textContent = chat.unread > 9 ? "9+" : String(chat.unread);
+  }
+
+  function openChat() {
+    chat.open = true; chat.unread = 0;
+    $("chat-panel").hidden = false;
+    updateChatUi();
+    var l = $("chat-list"); l.scrollTop = l.scrollHeight;
+    $("chat-input").focus();
+  }
+  function closeChat() {
+    if (chat.rec) cancelRec();
+    chat.open = false;
+    $("chat-panel").hidden = true;
+    updateChatUi();
+    $("chat-fab").focus();
+  }
+
+  function chatReset() {
+    if (chat.rec) cancelRec();
+    $("chat-list").textContent = "";
+    chat.unread = 0; chat.open = false; chatErr("");
+    $("chat-panel").hidden = true;
+    ensureEmpty();
+  }
+
+  function ensureEmpty() {
+    var l = $("chat-list");
+    var e = l.querySelector(".chat-empty");
+    if (!l.querySelector(".msg")) {
+      if (!e) {
+        e = document.createElement("p"); e.className = "chat-empty";
+        e.textContent = "Aún no hay mensajes. Escribe algo o manda una nota de voz.";
+        l.appendChild(e);
+      }
+    } else if (e) { e.remove(); }
+  }
+
+  function addChat(from, kind, body, mine) {
+    var l = $("chat-list");
+    var m = document.createElement("div");
+    m.className = "msg" + (mine ? " mine" : "");
+    var w = document.createElement("div"); w.className = "who"; w.textContent = mine ? "Tú" : from; m.appendChild(w);
+    if (kind === "text") {
+      var t = document.createElement("div"); t.textContent = body; m.appendChild(t);
+    } else {
+      var a = document.createElement("audio"); a.controls = true; a.preload = "metadata";
+      try { a.src = URL.createObjectURL(body); } catch (e) { a.removeAttribute("src"); }
+      m.appendChild(a);
+    }
+    l.appendChild(m);
+    ensureEmpty();
+    l.scrollTop = l.scrollHeight;
+    if (!mine && !chat.open) { chat.unread++; updateChatUi(); }
+  }
+
+  function sendAllExcept(skip, msg) {
+    net.players.forEach(function (p) { if (p.conn && p.conn !== skip && p.conn.open) p.conn.send(msg); });
+  }
+
+  function chatText(raw) {
+    var text = String(raw || "").trim().slice(0, 300);
+    if (!text || !net.inRoom) return;
+    addChat(net.me, "text", text, true);
+    if (net.isHost) sendAll({ t: "chat", from: net.me, text: text });
+    else if (net.conn && net.conn.open) net.conn.send({ t: "chat", text: text });
+  }
+
+  function validVoice(d) {
+    return d && typeof d.mime === "string" && d.mime.indexOf("audio/") === 0 && d.audio &&
+      (d.audio.byteLength || 0) > 0 && d.audio.byteLength <= MAX_VOICE_BYTES;
+  }
+  function voiceBlob(d) { return new Blob([d.audio], { type: d.mime }); }
+
+  // El anfitrión recibe y reenvía a los demás
+  function hostChat(c, d) {
+    var i = idxOf(c); if (i < 0) return;
+    var from = net.players[i].name;
+    if (d.t === "chat") {
+      var text = String(d.text || "").trim().slice(0, 300);
+      if (!text) return;
+      addChat(from, "text", text, false);
+      sendAllExcept(c, { t: "chat", from: from, text: text });
+    } else if (validVoice(d)) {
+      addChat(from, "voice", voiceBlob(d), false);
+      sendAllExcept(c, { t: "voice", from: from, mime: d.mime, dur: d.dur, audio: d.audio });
+    }
+  }
+  function guestChat(d) {
+    var from = String(d.from || "?").slice(0, 18);
+    if (d.t === "chat") { var text = String(d.text || "").slice(0, 300); if (text) addChat(from, "text", text, false); }
+    else if (validVoice(d)) addChat(from, "voice", voiceBlob(d), false);
+  }
+
+  function pickMime() {
+    var c = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm", "audio/ogg;codecs=opus"];
+    for (var i = 0; i < c.length; i++) { try { if (MediaRecorder.isTypeSupported(c[i])) return c[i]; } catch (e) {} }
+    return "";
+  }
+
+  function recClock() {
+    var secs = Math.floor((Date.now() - chat.t0) / 1000);
+    $("chat-rt").textContent = "Grabando " + fmt(secs);
+    if (secs >= MAX_VOICE_SECS) stopRec(false);
+  }
+
+  function startRec() {
+    if (chat.rec || !net.inRoom) return;
+    chatErr("");
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      var mime = pickMime(), chunks = [];
+      var rec;
+      try { rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream); }
+      catch (e) { stream.getTracks().forEach(function (t) { t.stop(); }); chatErr("Tu teléfono no puede grabar audio aquí."); return; }
+      chat.rec = rec; chat.cancel = false; chat.stream = stream; chat.t0 = Date.now();
+      rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = function () {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        clearInterval(chat.timer);
+        var dur = Math.max(1, Math.round((Date.now() - chat.t0) / 1000));
+        var cancelled = chat.cancel;
+        chat.rec = null;
+        $("chat-rec").hidden = true; $("chat-mic").disabled = false;
+        if (cancelled || !chunks.length) return;
+        sendVoice(new Blob(chunks, { type: rec.mimeType || mime || "audio/webm" }), dur);
+      };
+      $("chat-rt").textContent = "Grabando 0:00";
+      $("chat-rec").hidden = false; $("chat-mic").disabled = true;
+      chat.timer = setInterval(recClock, 250);
+      rec.start();
+    }).catch(function () {
+      chatErr("No se pudo usar el micrófono. Revisa el permiso del navegador.");
+    });
+  }
+  function stopRec(cancel) {
+    if (!chat.rec) return;
+    chat.cancel = !!cancel;
+    try { chat.rec.stop(); } catch (e) {}
+  }
+  function cancelRec() { stopRec(true); }
+
+  function sendVoice(blob, dur) {
+    if (blob.size > MAX_VOICE_BYTES) { chatErr("La nota de voz es muy larga. Intenta una más corta."); return; }
+    blob.arrayBuffer().then(function (buf) {
+      if (!net.inRoom) return;
+      addChat(net.me, "voice", blob, true);
+      var mime = blob.type || "audio/webm";
+      if (net.isHost) sendAll({ t: "voice", from: net.me, mime: mime, dur: dur, audio: buf });
+      else if (net.conn && net.conn.open) net.conn.send({ t: "voice", mime: mime, dur: dur, audio: buf });
+    });
+  }
+
+  $("chat-fab").addEventListener("click", openChat);
+  $("chat-close").addEventListener("click", closeChat);
+  $("chat-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var inp = $("chat-input");
+    chatText(inp.value); inp.value = ""; inp.focus();
+  });
+  $("chat-mic").addEventListener("click", startRec);
+  $("chat-rec-cancel").addEventListener("click", cancelRec);
+  $("chat-rec-send").addEventListener("click", function () { stopRec(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && chat.open) closeChat(); });
+  ensureEmpty();
 
   renderPlayers(); renderCats(); renderSetup();
 })();
