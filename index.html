@@ -271,7 +271,8 @@
   <section id="s-vote" hidden>
     <p class="eyebrow" style="text-align:center">Votación</p>
     <h2 style="text-align:center">¿Quién es el impostor?</h2>
-    <p class="dim" style="text-align:center">Toca el nombre de quien crees que es el impostor.</p>
+    <p class="dim" id="vote-help" style="text-align:center">Toca el nombre de quien crees que es el impostor.</p>
+    <p class="eyebrow" id="vote-count" style="text-align:center" hidden></p>
     <div class="vote-list" id="vote-list"></div>
     <p class="error" id="vote-err" role="alert" style="text-align:center"></p>
     <button class="btn" id="confirm-vote" type="button">Confirmar voto</button>
@@ -350,7 +351,7 @@
     players: ["Ana", "Luis", "Sara", "David"],
     cats: { personajes: true, lugares: true, libros: true },
     impostors: 1, minutes: 3, hint: true,
-    round: null, idx: 0, timerId: null, choice: -1
+    round: null, idx: 0, timerId: null, sel: [], voteK: 1
   };
 
   var net = {
@@ -498,7 +499,21 @@
     return out;
   }
 
+  function voteK(r) { return r.names.length === 2 ? 1 : Math.max(1, r.impostors.length); }
+
   function evaluate(r, choice) {
+    if (Array.isArray(choice)) {
+      var kk2 = r.impostors.length;
+      var hits = choice.filter(function (i) { return r.impostors.indexOf(i) !== -1; }).length;
+      return {
+        win: choice.length === kk2 && hits === kk2, none: false, saidNobody: false, noChoice: choice.length === 0,
+        k: kk2, hits: hits,
+        choiceName: choice.map(function (i) { return r.names[i]; }).join(" y "),
+        impNames: r.impostors.map(function (i) { return r.names[i]; }).join(" y "),
+        impList: r.impostors.map(function (i) { return r.names[i]; }),
+        word: r.word, ref: r.ref, cat: r.cat, tally: ""
+      };
+    }
     var n = r.names.length, none = r.impostors.length === 0, saidNobody = choice === n;
     var win = choice < 0 ? false : (saidNobody ? none : r.impostors.indexOf(choice) !== -1);
     return {
@@ -558,9 +573,14 @@
     show("s-play");
   }
 
-  function buildVote(names, withNone) {
-    state.choice = -1;
+  function buildVote(names, withNone, k) {
+    k = k || 1;
+    state.sel = []; state.voteK = k;
     var box = $("vote-list"); box.textContent = "";
+    var help = $("vote-help"), cnt = $("vote-count");
+    if (withNone) { help.textContent = "Puede haber un impostor o ninguno. Toca un nombre."; cnt.hidden = true; }
+    else if (k === 1) { help.textContent = "Hay 1 impostor. Toca el nombre de quien crees que es."; cnt.hidden = true; }
+    else { help.textContent = "Hay " + k + " impostores. Elige a " + k + " personas."; cnt.hidden = false; cnt.textContent = "Elegidos: 0 de " + k; }
     var all = names.slice();
     if (withNone) all.push("Nadie, no hay impostor");
     all.forEach(function (name, i) {
@@ -568,8 +588,13 @@
       b.type = "button"; b.className = "chip vote"; b.textContent = name;
       b.setAttribute("aria-pressed", "false");
       b.addEventListener("click", function () {
-        state.choice = i;
-        Array.prototype.forEach.call(box.children, function (c, j) { c.setAttribute("aria-pressed", j === i ? "true" : "false"); });
+        var sel = state.sel, at = sel.indexOf(i);
+        if (k === 1) sel.length = 0, sel.push(i);
+        else if (at >= 0) sel.splice(at, 1);
+        else if (sel.length < k) sel.push(i);
+        else { $("vote-err").textContent = "Ya elegiste a " + k + ". Quita a uno para cambiar."; return; }
+        Array.prototype.forEach.call(box.children, function (c, j) { c.setAttribute("aria-pressed", sel.indexOf(j) !== -1 ? "true" : "false"); });
+        cnt.textContent = "Elegidos: " + sel.length + " de " + k;
         $("vote-err").textContent = "";
       });
       box.appendChild(b);
@@ -601,6 +626,9 @@
     if (data.win && data.none) {
       vel("h2", "", "¡Tenían razón!");
       vel("p", "dim", "En esta ronda no había impostor. Ganaron los jugadores.");
+    } else if (data.win && data.k > 1) {
+      vel("h2", "", "¡Los encontraron!");
+      vel("p", "dim", "Ganaron los jugadores. " + data.impNames + " eran los impostores.");
     } else if (data.win) {
       vel("h2", "", "¡Lo encontraron!");
       vel("p", "dim", "Ganaron los jugadores. " + data.choiceName + " era el impostor.");
@@ -610,8 +638,11 @@
     } else {
       vel("h2", "", "¡Perdieron!");
       vel("p", "dim", data.saidNobody ? "Dijeron que no había impostor, pero sí lo había."
-                      : (data.noChoice ? "No se pusieron de acuerdo en un solo nombre."
-                                       : data.choiceName + " no era el impostor."));
+                      : (data.k > 1
+                          ? (data.noChoice ? "No se pusieron de acuerdo en los nombres."
+                                           : "Eligieron a " + data.choiceName + ". Acertaron " + data.hits + " de " + data.k + " impostores.")
+                          : (data.noChoice ? "No se pusieron de acuerdo en un solo nombre."
+                                           : data.choiceName + " no era el impostor.")));
       vel("p", "eyebrow", (data.impList.length > 1 ? "Los ganadores son" : "El ganador es"));
       vel("div", "winner", data.impNames);
     }
@@ -700,14 +731,19 @@
     clearInterval(state.timerId);
     if (isOnline()) { hostOpenVote(); return; }
     var names = state.round.names;
-    buildVote(names, names.length === 2);
+    buildVote(names, names.length === 2, voteK(state.round));
     show("s-vote");
   });
 
   $("confirm-vote").addEventListener("click", function () {
-    if (state.choice < 0) { $("vote-err").textContent = "Toca un nombre antes de confirmar."; return; }
-    if (isOnline()) { submitVote(state.choice); return; }
-    renderResult(evaluate(state.round, state.choice), true);
+    var kv = state.voteK || 1;
+    if (state.sel.length !== kv) {
+      $("vote-err").textContent = kv === 1 ? "Toca un nombre antes de confirmar." : "Elige exactamente a " + kv + " personas (llevas " + state.sel.length + ").";
+      return;
+    }
+    var value = kv === 1 ? state.sel[0] : state.sel.slice();
+    if (isOnline()) { submitVote(value); return; }
+    renderResult(evaluate(state.round, value), true);
   });
 
   $("again").addEventListener("click", function () {
@@ -882,7 +918,7 @@
     } else if (d.t === "play") {
       startPlayView(d.secs, d.order, d.info, false);
     } else if (d.t === "vote") {
-      buildVote(d.names, d.none);
+      buildVote(d.names, d.none, d.k || 1);
       show("s-vote");
     } else if (d.t === "result") {
       renderResult(d.data, false, d.me);
@@ -944,8 +980,8 @@
     var r = net.round;
     net.phase = "vote"; net.votes = {};
     var withNone = r.names.length === 2;
-    sendAll({ t: "vote", names: r.names, none: withNone });
-    buildVote(r.names, withNone);
+    sendAll({ t: "vote", names: r.names, none: withNone, k: voteK(r) });
+    buildVote(r.names, withNone, voteK(r));
     show("s-vote");
   }
 
@@ -970,13 +1006,26 @@
     if (net.phase !== "vote") return;
     var r = net.round, n = r.names.length;
     var tally = []; for (var t = 0; t <= n; t++) tally.push(0);
+    var multi = n > 2 && r.impostors.length > 1, kq = r.impostors.length;
     Object.keys(net.votes).forEach(function (k) {
       var ch = net.votes[k];
-      if (typeof ch === "number" && ch >= 0 && ch <= n && (ch < n || n === 2)) tally[ch]++;
+      if (multi) {
+        if (Array.isArray(ch) && ch.length === kq && ch.every(function (x, ix) { return typeof x === "number" && x >= 0 && x < n && ch.indexOf(x) === ix; })) {
+          ch.forEach(function (x) { tally[x]++; });
+        }
+      } else if (typeof ch === "number" && ch >= 0 && ch <= n && (ch < n || n === 2)) tally[ch]++;
     });
-    var max = Math.max.apply(null, tally), tops = [];
-    tally.forEach(function (v, i) { if (v === max && max > 0) tops.push(i); });
-    var choice = tops.length === 1 ? tops[0] : (n === 2 ? n : -1);
+    var choice;
+    if (multi) {
+      var order = []; for (var q = 0; q < n; q++) order.push(q);
+      order.sort(function (a, b) { return tally[b] - tally[a] || a - b; });
+      var cut = tally[order[kq - 1]], nxt = tally[order[kq]];
+      choice = (cut > 0 && cut > nxt) ? order.slice(0, kq) : [];
+    } else {
+      var max = Math.max.apply(null, tally), tops = [];
+      tally.forEach(function (v, i) { if (v === max && max > 0) tops.push(i); });
+      choice = tops.length === 1 ? tops[0] : (n === 2 ? n : -1);
+    }
     var data = evaluate(r, choice);
     if (n === 2) {
       var kk = r.impostors.length ? r.impostors[0] : -1;
